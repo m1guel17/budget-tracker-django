@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Tipo de Cambio{% endblock %}
+
+{% block content %}
+<div class="alert alert-info">
+    Solo necesitas registrar tipo de cambio cuando trabajes con USD o quieras ver conversiones.
+</div>
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Tipos de Cambio</h3>
+        <div class="card-actions">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newRateModal">Nuevo Tipo de Cambio</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>USD a PEN</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in rates %}
+                <tr>
+                    <td>{{ rate.date }}</td>
+                    <td>{{ rate.usd_to_pen|floatformat:4 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for new exchange rate -->
+<div class="modal modal-blur fade" id="newRateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Tipo de Cambio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <input type="date" class="form-control" name="date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">USD a PEN</label>
+                        <input type="number" step="0.0001" class="form-control" name="usd_to_pen" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

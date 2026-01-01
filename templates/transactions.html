@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}Transacciones{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Transacciones</h3>
+        <div class="card-actions">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTransactionModal">Nueva Transacción</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <table class="table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                    <th>Moneda</th>
+                    <th>Categoría</th>
+                    <th>Descripción</th>
+                    <th>Cuenta Origen</th>
+                    <th>Cuenta Destino</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr {% if not transaction.is_valid %}class="table-secondary"{% endif %}>
+                    <td>{{ transaction.date }}</td>
+                    <td>{{ transaction.get_kind_display }}</td>
+                    <td>{{ transaction.amount }}</td>
+                    <td>{{ transaction.currency }}</td>
+                    <td>{{ transaction.category.name|default:"-" }}</td>
+                    <td>{{ transaction.description }}</td>
+                    <td>{{ transaction.account_from.name|default:"-" }}</td>
+                    <td>{{ transaction.account_to.name|default:"-" }}</td>
+                    <td>{% if transaction.is_valid %}Válida{% else %}Invalidada{% endif %}</td>
+                    <td>
+                        {% if transaction.is_valid %}
+                        <a href="?edit={{ transaction.id }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <form method="post" action="{% url 'invalidate_transaction' transaction.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Estás seguro de invalidar esta transacción?')">Invalidar</button>
+                        </form>
+                        {% else %}
+                        <form method="post" action="{% url 'delete_transaction' transaction.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Estás seguro de eliminar permanentemente esta transacción?')">Eliminar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for new/edit transaction -->
+<div class="modal modal-blur fade" id="newTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% if edit_transaction %}Editar Transacción{% else %}Nueva Transacción{% endif %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                {% if edit_transaction %}<input type="hidden" name="transaction_id" value="{{ edit_transaction.id }}">{% endif %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-lg-8 mb-3">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" name="kind" id="kind-select">
+                                <option value="-" selected>-</option>
+                                <option value="INGRESO" {% if edit_transaction and edit_transaction.kind == 'INGRESO' %}selected{% endif %}>Ingreso</option>
+                                <option value="GASTO" {% if edit_transaction and edit_transaction.kind == 'GASTO' %}selected{% endif %}>Gasto</option>
+                                <option value="TRANSFERENCIA" {% if edit_transaction and edit_transaction.kind == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia Interna</option>
+                                <option value="TRANSFERENCIA_EXTERNA" {% if edit_transaction and edit_transaction.kind == 'TRANSFERENCIA_EXTERNA' %}selected{% endif %}>Transferencia Externa</option>
+                                <option value="PAGO_TARJETA" {% if edit_transaction and edit_transaction.kind == 'PAGO_TARJETA' %}selected{% endif %}>Pago de Tarjeta</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4 mb-3" id="transaction_date">
+                            <label class="form-label">Fecha</label>
+                            <input type="date" class="form-control" name="date" value="{% if edit_transaction %}{{ edit_transaction.date|date:'Y-m-d' }}{% endif %}" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-4 mb-3" style="display: none;" id="transaction_amount">
+                            <label class="form-label">Monto</label>
+                            <input type="number" step="0.01" class="form-control" name="amount" value="{% if edit_transaction %}{{ edit_transaction.amount }}{% endif %}" required>
+                        </div>
+                        <div class="col-lg-4 mb-3" style="display: none;" id="transaction_currency">
+                            <label class="form-label">Moneda</label>
+                            <select class="form-select" name="currency">
+                                <option value="PEN" {% if edit_transaction and edit_transaction.currency == 'PEN' %}selected{% endif %}>PEN</option>
+                                <option value="USD" {% if edit_transaction and edit_transaction.currency == 'USD' %}selected{% endif %}>USD</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4 mb-3" style="display: none;" id="category-field">
+                            <label class="form-label">Categoría</label>
+                            <select class="form-select" name="category">
+                                <option value="">Sin Categoría</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}" {% if edit_transaction and edit_transaction.category == cat %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3" style="display: none;" id="transaction_description">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" class="form-control" name="description" value="{% if edit_transaction %}{{ edit_transaction.description }}{% endif %}" required autocomplete="off">
+                    </div>
+                    <div class="mb-3" style="display: none;" id="transaction_paymethod">
+                        <label class="form-label">Método de Pago</label>
+                        <select class="form-select" name="payment_method">
+                            <option value="EFECTIVO" {% if edit_transaction and edit_transaction.payment_method == 'EFECTIVO' %}selected{% endif %}>Efectivo</option>
+                            <option value="TARJETA_DEBITO" {% if edit_transaction and edit_transaction.payment_method == 'TARJETA_DEBITO' %}selected{% endif %}>Tarjeta de Débito</option>
+                            <option value="TARJETA_CREDITO" {% if edit_transaction and edit_transaction.payment_method == 'TARJETA_CREDITO' %}selected{% endif %}>Tarjeta de Crédito</option>
+                            <option value="TRANSFERENCIA" {% if edit_transaction and edit_transaction.payment_method == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia</option>
+                            <option value="OTRO" {% if edit_transaction and edit_transaction.payment_method == 'OTRO' %}selected{% endif %}>Otro</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-6 mb-3" style="display: none;" id="account-from-field">
+                            <label class="form-label">Cuenta Origen</label>
+                            <select class="form-select" name="account_from">
+                                <option value="">Ninguna</option>
+                                {% for acc in accounts %}
+                                <option value="{{ acc.id }}" {% if edit_transaction and edit_transaction.account_from == acc %}selected{% endif %}>{{ acc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-lg-6 mb-3" style="display: none;" id="account-to-field">
+                            <label class="form-label">Cuenta Destino</label>
+                            <select class="form-select" name="account_to">
+                                <option value="">Ninguna</option>
+                                {% for acc in accounts %}
+                                <option value="{{ acc.id }}" {% if edit_transaction and edit_transaction.account_to == acc %}selected{% endif %}>{{ acc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3" style="display: none;" id="payee-field">
+                        <label class="form-label">Destinatario</label>
+                        <input type="text" class="form-control" name="payee" value="{% if edit_transaction and edit_transaction.payee %}{{ edit_transaction.payee.name }}{% endif %}" list="payees" autocomplete="off">
+                        {% comment %} <datalist id="payees">
+                            {% for payee in payees %}
+                            <option value="{{ payee.name }}">
+                            {% endfor %}
+                        </datalist> {% endcomment %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show modal if editing
+    {% if edit_transaction %}
+    var modal = new bootstrap.Modal(document.getElementById('newTransactionModal'));
+    modal.show();
+    {% endif %}
+
+    document.getElementById('kind-select').addEventListener('change', function() {
+        const kind = this.value;
+        const categoryField = document.getElementById('category-field');
+        const accountFromField = document.getElementById('account-from-field');
+        const accountToField = document.getElementById('account-to-field');
+        const payeeField = document.getElementById('payee-field');
+        
+        const dateField = document.getElementById('transaction_date');
+        const amountField = document.getElementById('transaction_amount');
+        const currencyField = document.getElementById('transaction_currency');
+        const descriptionField = document.getElementById('transaction_description');
+        const paymethodField = document.getElementById('transaction_paymethod');
+
+        // Hide all
+        categoryField.style.display = 'none';
+        accountFromField.style.display = 'none';
+        accountToField.style.display = 'none';
+        payeeField.style.display = 'none';
+        
+        dateField.style.display = 'none';
+        amountField.style.display = 'none';
+        currencyField.style.display = 'none';
+        descriptionField.style.display = 'none';
+        paymethodField.style.display = 'none';
+
+        if (kind === 'GASTO') {
+            categoryField.style.display = 'block';
+            accountFromField.style.display = 'block';
+            //payeeField.style.display = 'block';
+
+            dateField.style.display = 'block';
+            amountField.style.display = 'block';
+            currencyField.style.display = 'block';
+            descriptionField.style.display = 'block';
+            paymethodField.style.display = 'block';
+        } else if (kind === 'INGRESO') {
+            accountToField.style.display = 'block';
+            //payeeField.style.display = 'block';
+
+            dateField.style.display = 'block';
+            amountField.style.display = 'block';
+            currencyField.style.display = 'block';
+            descriptionField.style.display = 'block';
+            paymethodField.style.display = 'block';
+        } else if (kind === 'TRANSFERENCIA') {
+            accountFromField.style.display = 'block';
+            accountToField.style.display = 'block';
+
+            dateField.style.display = 'block';
+            amountField.style.display = 'block';
+            currencyField.style.display = 'block';
+            descriptionField.style.display = 'block';
+            paymethodField.style.display = 'block';
+        } else if (kind === 'PAGO_TARJETA') {
+            accountFromField.style.display = 'block';
+            accountToField.style.display = 'block';
+
+            dateField.style.display = 'block';
+            amountField.style.display = 'block';
+            currencyField.style.display = 'block';
+            descriptionField.style.display = 'block';
+            paymethodField.style.display = 'block';
+        } else if (kind === 'TRANSFERENCIA_EXTERNA') {
+            accountFromField.style.display = 'block';
+            accountToField.style.display = 'block';
+
+            dateField.style.display = 'block';
+            amountField.style.display = 'block';
+            currencyField.style.display = 'block';
+            descriptionField.style.display = 'block';
+            paymethodField.style.display = 'block';
+        }
+    });
+});
+</script>
+{% endblock %}

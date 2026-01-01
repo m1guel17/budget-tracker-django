@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Resumen del Período: {{ start_date|date:"M Y" }} - {{ end_date|date:"M Y" }}</h3>
+            </div>
+            <div class="card-body">
+                <div class="row row-cards">
+                    <!-- PEN KPIs -->
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-stamp">
+                                <div class="card-stamp-icon bg-yellow">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-letter-s"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 8a4 4 0 0 0 -4 -4h-2a4 4 0 0 0 0 8h2a4 4 0 0 1 0 8h-2a4 4 0 0 1 -4 -4" /></svg>
+                                </div>
+                            </div>
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ pen_income|floatformat:2 }}</div>
+                                <div class="text-muted">Ingresos PEN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ pen_expenses|floatformat:2 }}</div>
+                                <div class="text-muted">Gastos PEN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ pen_savings|floatformat:2 }}</div>
+                                <div class="text-muted">Ahorros PEN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ pen_balance|floatformat:2 }}</div>
+                                <div class="text-muted">Balance PEN</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- USD KPIs -->
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-stamp">
+                                <div class="card-stamp-icon bg-green">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-currency-dollar"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M16.7 8a3 3 0 0 0 -2.7 -2h-4a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6h-4a3 3 0 0 1 -2.7 -2" /><path d="M12 3v3m0 12v3" /></svg>
+                                </div>
+                            </div>
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ usd_income|floatformat:2 }}</div>
+                                <div class="text-muted">Ingresos USD</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ usd_expenses|floatformat:2 }}</div>
+                                <div class="text-muted">Gastos USD</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ usd_savings|floatformat:2 }}</div>
+                                <div class="text-muted">Ahorros USD</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <div class="h1 mb-0">{{ usd_balance|floatformat:2 }}</div>
+                                <div class="text-muted">Balance USD</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cards mt-1">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Flujo de Caja Mensual</h3>
+            </div>
+            <div class="card-body">
+                <div id="netflow-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Gastos por Categoría</h3>
+            </div>
+            <div class="card-body">
+                <div id="expenses-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Ingresos y Gastos Mensuales</h3>
+            </div>
+            <div class="card-body">
+                <div id="income-expenses-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Netflow chart
+    fetch('/api/dashboard/netflow_12m')
+        .then(response => response.json())
+        .then(data => {
+            const options = {
+                series: [{
+                    name: 'PEN',
+                    data: data.map(d => d.pen)
+                }, {
+                    name: 'USD',
+                    data: data.map(d => d.usd)
+                }],
+                chart: {
+                    type: 'line',
+                    height: 300,
+                    stacked: false
+                },
+                xaxis: {
+                    categories: data.map(d => d.month)
+                },
+                yaxis: [
+                    {
+                        seriesName: 'PEN',
+                        axisTicks: { show: true, },
+                        axisBorder: { show: true, color: '#008FFB' },
+                        labels: { style: { colors: '#008FFB',} },
+                        title: { text: "Ingresos SOLES", style: { color: '#008FFB', } }
+                    },
+                    {
+                        seriesName: 'USD',
+                        opposite: true,
+                        axisTicks: { show: true, },
+                        axisBorder: { show: true, color: '#00E396'},
+                        labels: { style: {colors: '#00E396',} },
+                        title: { text: "Ingresos DÓLARES", style: { color: '#00E396', } }
+                    }
+                ],
+                tooltip: {
+                    enabled: true,
+                    x: {
+                        format: 'MMMM/yy'
+                    },
+                },
+            };
+            const chart = new ApexCharts(document.querySelector("#netflow-chart"), options);
+            chart.render();
+        });
+
+    // Expenses by category
+    const start = '{{ start_date|date:"Y-m-d" }}';
+    const end = '{{ end_date|date:"Y-m-d" }}';
+    fetch(`/api/dashboard/expenses_by_category?start=${start}&end=${end}`)
+        .then(response => response.json())
+        .then(data => {
+            const options = {
+                series: Object.values(data),
+                chart: {
+                    type: 'pie',
+                    height: 300,
+                    toolbar: {
+                        show: true
+                    },
+                },
+                labels: Object.keys(data)
+            };
+            const chart2 = new ApexCharts(document.querySelector("#expenses-chart"), options);
+            chart2.render();
+        });
+
+    // Income and Expenses chart with dual Y-axes
+    fetch('/api/dashboard/income_expenses_12m')
+        .then(response => response.json())
+        .then(data => {
+            const options = {
+                series: [
+                    {
+                        name: 'Ingresos PEN',
+                        data: data.map(d => d.pen_income)
+                    },
+                    {
+                        name: 'Gastos PEN',
+                        data: data.map(d => d.pen_expense)
+                    },
+                    {
+                        name: 'Ingresos USD',
+                        data: data.map(d => d.usd_income)
+                    },
+                    {
+                        name: 'Gastos USD',
+                        data: data.map(d => d.usd_expense)
+                    }
+                ],
+                chart: {
+                    type: 'area',
+                    height: 350,
+                    stacked: false
+                },
+                dataLabels: { // to not show labels in each timestamp
+                    enabled: false
+                },
+                colors: ['#008FFB', '#00345cff', '#00E396', '#005c3dff'],
+                xaxis: {
+                    type: 'datetime',
+                    categories: data.map(d => d.month)
+                },
+                yaxis: [
+                    {seriesName: 'Ingresos PEN',
+                        axisTicks: {
+                            show: true,
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#008FFB'
+                        },
+                        labels: {
+                            style: {
+                                colors: '#008FFB',
+                            }
+                        },
+                        title: {
+                            text: "Ingresos PEN",
+                            style: {
+                                color: '#008FFB',
+                            }
+                        }
+                    },
+                    {seriesName: 'Gastos PEN',
+                        axisTicks: {
+                            show: true,
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#00345cff'
+                        },
+                        labels: {
+                            style: {
+                                colors: '#00345cff',
+                            }
+                        },
+                        title: {
+                            text: "Gastos PEN",
+                            style: {
+                                color: '#00345cff',
+                            }
+                        }
+                    },
+                    {seriesName: 'Ingresos USD',
+                        opposite: true,
+                        axisTicks: {
+                            show: true,
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#00E396'
+                        },
+                        labels: {
+                            style: {
+                                colors: '#00E396',
+                            }
+                        },
+                        title: {
+                            text: "Ingresos USD",
+                            style: {
+                                color: '#00E396',
+                            }
+                        }
+                    },
+                    {seriesName: 'Gastos USD',
+                        opposite: true,
+                        axisTicks: {
+                            show: true,
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#005c3dff'
+                        },
+                        labels: {
+                            style: {
+                                colors: '#005c3dff',
+                            }
+                        },
+                        title: {
+                            text: "Gastos USD",
+                            style: {
+                                color: '#005c3dff',
+                            }
+                        }
+                    }
+                ],
+                tooltip: {
+                    enabled: true,
+                    x: {
+                        format: 'MMMM yyyy'
+                    },
+                },
+                legend: {
+                    horizontalAlign: 'left',
+                    offsetX: 40
+                }
+            };
+            const chart3 = new ApexCharts(document.querySelector("#income-expenses-chart"), options);
+            chart3.render();
+        });
+});
+</script>
+{% endblock %}
